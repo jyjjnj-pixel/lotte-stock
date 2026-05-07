@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#dc2626">
+<title>롯데마트 전 지점 재고 조회</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --text: #1c1917;
+  --text-dim: #78716c;
+  --text-faint: #a8a29e;
+  --border: #e7e5e4;
+  --accent: #dc2626;
+  --accent-soft: #fef2f2;
+  --in-stock: #15803d;
+  --in-stock-bg: #f0fdf4;
+  --out-of-stock: #a8a29e;
+  --info-bg: #fef9c3;
+  --info-text: #854d0e;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+/* 헤더 */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px 12px;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+}
+
+.title-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.search-form {
+  display: flex;
+  gap: 8px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.search-btn {
+  padding: 12px 20px;
+  background: var(--text);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.search-btn:active { transform: scale(0.97); }
+.search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 옵션 영역 */
+.options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.checkbox-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-wrap input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+/* 상태 바 */
+.status {
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.status.error { color: var(--accent); background: var(--accent-soft); }
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 결과 영역 */
+.results {
+  padding: 8px 16px 32px;
+}
+
+.empty-state {
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 14px;
+}
+
+.empty-state-emoji {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* 상품 카드 */
+.product {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s;
+}
+
+.product-header {
+  padding: 14px 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.product-header:active { background: var(--bg); }
+
+.product-info { flex: 1; min-width: 0; }
+
+.product-name {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.015em;
+  margin-bottom: 4px;
+  word-break: keep-all;
+}
+
+.product-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.product-price {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stock-badge {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.stock-badge.in-stock { background: var(--in-stock-bg); color: var(--in-stock); }
+.stock-badge.no-stock { background: #f5f5f4; color: var(--out-of-stock); }
+
+.expand-icon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+  transition: transform 0.2s;
+}
+
+.product.expanded .expand-icon { transform: rotate(180deg); }
+
+/* 매장 리스트 */
+.store-list {
+  border-top: 1px solid var(--border);
+  display: none;
+  background: var(--bg);
+}
+
+.product.expanded .store-list { display: block; }
+
+.store-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  gap: 8px;
+}
+
+.store-item:last-child { border-bottom: none; }
+
+.store-name { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+
+.store-area {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.store-text { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.store-stock {
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.store-stock.in-stock { color: var(--in-stock); }
+.store-stock.out-of-stock { color: var(--out-of-stock); }
+
+/* 진행률 바 */
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  width: 0%;
+  z-index: 100;
+  transition: width 0.3s ease-out;
+}
+
+/* 정보 박스 */
+.info-box {
+  margin: 16px 16px 0;
+  padding: 10px 14px;
+  background: var(--info-bg);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--info-text);
+  line-height: 1.5;
+}
+
+/* 푸터 */
+footer {
+  text-align: center;
+  padding: 24px 20px 32px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+</style>
+</head>
+<body>
+<div class="progress-bar" id="progressBar"></div>
+
+<div class="container">
+  <header>
+    <div class="title">
+      <span class="title-dot"></span>
+      <span>롯데마트 전 지점 재고 조회</span>
+    </div>
+    <form class="search-form" onsubmit="doSearch(event)">
+      <input type="text" id="keyword" class="search-input" 
+             placeholder="상품명을 입력하세요 (예: 포켓몬카드)" 
+             value="포켓몬카드" autocomplete="off">
+      <button type="submit" id="searchBtn" class="search-btn">검색</button>
+    </form>
+    <div class="options">
+      <label class="checkbox-wrap">
+        <input type="checkbox" id="onlyInStock">
+        <span>재고 있는 매장만 보기</span>
+      </label>
+    </div>
+  </header>
+
+  <div class="status" id="status">
+    매장 목록을 준비 중입니다...
+  </div>
+
+  <div class="results" id="results">
+    <div class="empty-state">
+      <div class="empty-state-emoji">🔍</div>
+      <div>상품명을 입력하고 검색해보세요</div>
+      <div style="margin-top:6px;font-size:12px;">전국 모든 롯데마트의 재고를 한 번에 확인합니다</div>
+    </div>
+  </div>
+
+  <footer>
+    재고는 실시간이지만 매장 상황에 따라 다를 수 있습니다<br>
+    데이터 출처: 롯데마트 도와센터
+  </footer>
+</div>
+
+<script>
+let storesReady = false;
+let lastResults = null;
+
+// 매장 목록 확인
+async function checkStores() {
+  try {
+    const r = await fetch('/api/stores');
+    const data = await r.json();
+    storesReady = data.count > 0;
+    document.getElementById('status').textContent = 
+      `매장 ${data.count}개 준비 완료`;
+  } catch (e) {
+    document.getElementById('status').textContent = '매장 목록 로드 실패';
+    document.getElementById('status').classList.add('error');
+  }
+}
+
+// 검색 실행
+async function doSearch(ev) {
+  ev.preventDefault();
+  const keyword = document.getElementById('keyword').value.trim();
+  if (keyword.length < 2) {
+    alert('검색어는 2글자 이상 입력해주세요.');
+    return;
+  }
+
+  const btn = document.getElementById('searchBtn');
+  const status = document.getElementById('status');
+  const results = document.getElementById('results');
+  const progress = document.getElementById('progressBar');
+
+  btn.disabled = true;
+  btn.textContent = '검색중';
+  status.classList.remove('error');
+  status.innerHTML = `<span class="spinner"></span><span>'${keyword}' 검색 중... 전국 매장 조회 (5~10초)</span>`;
+  results.innerHTML = '';
+  
+  // 가짜 진행률 (서버 응답 기다리는 동안 시각 효과)
+  progress.style.width = '0%';
+  let pct = 0;
+  const fakeProg = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 8, 90);
+    progress.style.width = pct + '%';
+  }, 300);
+
+  try {
+    const r = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keyword })
+    });
+
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || '검색 실패');
+    }
+
+    const data = await r.json();
+    lastResults = data;
+    
+    progress.style.width = '100%';
+    setTimeout(() => progress.style.width = '0%', 500);
+
+    renderResults();
+    
+    const total = data.products.length;
+    const inStockCount = data.products.filter(p => p.in_stock_count > 0).length;
+    status.innerHTML = `'${keyword}' 검색 완료 — ${total}개 상품 (재고있는 상품: ${inStockCount}개)`;
+  } catch (e) {
+    status.innerHTML = '검색 실패: ' + e.message;
+    status.classList.add('error');
+    progress.style.width = '0%';
+  } finally {
+    clearInterval(fakeProg);
+    btn.disabled = false;
+    btn.textContent = '검색';
+  }
+}
+
+// 결과 렌더링
+function renderResults() {
+  if (!lastResults) return;
+  
+  const onlyInStock = document.getElementById('onlyInStock').checked;
+  const results = document.getElementById('results');
+  
+  let products = lastResults.products;
+  if (onlyInStock) {
+    products = products.filter(p => p.in_stock_count > 0);
+  }
+
+  if (products.length === 0) {
+    results.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-emoji">😔</div>
+        <div>${onlyInStock ? '재고가 있는 상품이 없어요' : '검색 결과가 없어요'}</div>
+        <div style="margin-top:6px;font-size:12px;">다른 검색어를 시도해보세요</div>
+      </div>`;
+    return;
+  }
+
+  // 첫 검색 시 안내문
+  let infoHtml = '';
+  if (lastResults.products.length > 0 && !onlyInStock) {
+    const totalInStock = lastResults.products.reduce((sum, p) => sum + p.in_stock_count, 0);
+    if (totalInStock === 0) {
+      infoHtml = `<div class="info-box">검색된 모든 상품이 품절 상태입니다. '재고 있는 매장만 보기'를 끄고 어느 매장에서 검색됐는지 확인해보세요.</div>`;
+    }
+  }
+
+  let html = infoHtml;
+  for (const p of products) {
+    let stores = p.stores;
+    if (onlyInStock) {
+      stores = stores.filter(s => s.stock_label === '재고있음');
+    }
+
+    const hasStock = p.in_stock_count > 0;
+    const badgeClass = hasStock ? 'in-stock' : 'no-stock';
+    const badgeText = hasStock 
+      ? `재고있음 ${p.in_stock_count}곳` 
+      : '전체 품절';
+
+    html += `
+      <div class="product" onclick="toggleProduct(this)">
+        <div class="product-header">
+          <div class="product-info">
+            <div class="product-name">${escapeHtml(p.name)}</div>
+            <div class="product-meta">
+              <span class="product-price">${escapeHtml(p.price)}</span>
+              <span>·</span>
+              <span>${stores.length}개 매장 검색됨</span>
+              <span class="expand-icon">▼</span>
+            </div>
+          </div>
+          <div class="stock-badge ${badgeClass}">${badgeText}</div>
+        </div>
+        <div class="store-list">
+          ${stores.map(s => {
+            const stockClass = s.stock_label === '재고있음' ? 'in-stock' : 'out-of-stock';
+            return `
+              <div class="store-item">
+                <div class="store-name">
+                  <span class="store-area">${escapeHtml(s.area)}</span>
+                  <span class="store-text">${escapeHtml(s.store)}</span>
+                </div>
+                <div class="store-stock ${stockClass}">${escapeHtml(s.stock)}</div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  results.innerHTML = html;
+}
+
+function toggleProduct(el) {
+  el.classList.toggle('expanded');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+// 옵션 변경 시 재렌더링
+document.getElementById('onlyInStock').addEventListener('change', renderResults);
+
+// 초기화
+checkStores();
+</script>
+</body>
+</html>
