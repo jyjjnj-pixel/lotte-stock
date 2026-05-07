@@ -219,8 +219,23 @@ app = FastAPI(title="롯데마트 재고조회")
 async def startup():
     global STORES
     print("매장 목록 로드 중...")
-    STORES = load_stores()
-    print(f"매장 목록 준비 완료: {len(STORES)}개")
+    # 캐시 파일이 있으면 우선 사용 (서버가 롯데마트 못 찌를 수 있어서)
+    if os.path.exists(STORE_CACHE_FILE):
+        try:
+            with open(STORE_CACHE_FILE, "r", encoding="utf-8") as f:
+                STORES = json.load(f)
+                print(f"매장 목록 캐시에서 로드 완료: {len(STORES)}개")
+                return
+        except Exception as e:
+            print(f"캐시 로드 실패: {e}")
+
+    # 캐시 없으면 받아오기 시도 (실패해도 앱 죽지 않음)
+    try:
+        STORES = fetch_all_stores()
+        print(f"매장 목록 신규 수집 완료: {len(STORES)}개")
+    except Exception as e:
+        print(f"매장 목록 수집 실패: {e}")
+        STORES = []
 
 
 class SearchRequest(BaseModel):
